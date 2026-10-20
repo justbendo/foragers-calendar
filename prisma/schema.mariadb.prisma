@@ -1,0 +1,131 @@
+// Prisma Schema for The Foragers Calendar configured for MariaDB / MySQL
+// MariaDB uses provider = "mysql" in Prisma.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Species {
+  id                      String          @id @default(uuid()) @db.VarChar(36)
+  commonName              String          @db.VarChar(191)
+  scientificName          String          @unique @db.VarChar(191)
+  kingdom                 String          @db.VarChar(50) // "Fungi" | "Plantae"
+  family                  String          @db.VarChar(100)
+  category                String          @db.VarChar(100)
+  imageUrl                String          @db.VarChar(500)
+  imageAlt                String          @db.VarChar(500)
+  imageAttribution        String          @db.VarChar(255)
+  edibility               String          @db.VarChar(100)
+  edibilityNotes          String          @db.Text
+  culinaryPrep            String          @db.Text
+  knownRisks              String          @db.Text
+  identificationFeatures  Json
+  distinguishingFeatures  String          @db.Text
+  lookalikes              Json
+  // MariaDB does not support scalar String[] arrays natively, so Json is used
+  habitats                Json
+  elevationRange          String          @db.VarChar(100)
+  conservationStatus      String          @db.VarChar(100)
+  harvestMethod           String          @db.Text
+  notes                   String?         @db.Text
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  seasonalRanges          SeasonalRange[]
+  sources                 Source[]
+  alerts                  HarvestAlert[]
+
+  @@index([kingdom])
+  @@index([category])
+  @@index([edibility])
+}
+
+model SeasonalRange {
+  id                            String   @id @default(uuid()) @db.VarChar(36)
+  speciesId                     String   @db.VarChar(36)
+  regionCode                    String   @db.VarChar(50)
+  startMonth                    Int
+  peakMonthStart                Int
+  peakMonthEnd                  Int
+  endMonth                      Int
+  temperatureMinC               Float
+  temperatureMaxC               Float
+  minCumulativePrecipitationMm  Float
+  elevationMinM                 Int?
+  elevationMaxM                 Int?
+  evidenceBasis                 String   @db.Text
+  species                       Species  @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+
+  @@index([speciesId])
+  @@index([regionCode])
+  @@index([startMonth, endMonth])
+}
+
+model Region {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  code            String   @unique @db.VarChar(50)
+  name            String   @db.VarChar(191)
+  climateZone     String   @db.VarChar(100)
+  latitudeCenter  Float
+  longitudeCenter Float
+  radiusKm        Float
+  description     String   @db.Text
+  createdAt       DateTime @default(now())
+}
+
+model ClimateObservation {
+  id                   String   @id @default(uuid()) @db.VarChar(36)
+  regionCode           String   @db.VarChar(50)
+  observedAt           DateTime @default(now())
+  temperatureC         Float
+  precipitation7DaysMm Float
+  soilMoistureIndex    Float
+  weatherCondition     String   @db.VarChar(100)
+  provider             String   @db.VarChar(100)
+  createdAt            DateTime @default(now())
+
+  @@index([regionCode, observedAt])
+}
+
+model Source {
+  id           String   @id @default(uuid()) @db.VarChar(36)
+  speciesId    String   @db.VarChar(36)
+  title        String   @db.VarChar(255)
+  author       String   @db.VarChar(255)
+  publisher    String   @db.VarChar(255)
+  url          String   @db.VarChar(500)
+  year         Int
+  peerReviewed Boolean  @default(false)
+  species      Species  @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+
+  @@index([speciesId])
+}
+
+model UserPreference {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  sessionId        String   @unique @db.VarChar(191)
+  defaultRegion    String   @default("TEMPERATE_NW") @db.VarChar(50)
+  metricUnits      Boolean  @default(true)
+  savedSpeciesIds  Json
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model HarvestAlert {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  speciesId        String   @db.VarChar(36)
+  regionCode       String   @db.VarChar(50)
+  targetMonth      Int
+  conditionTrigger String   @db.VarChar(100)
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  species          Species  @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+
+  @@index([speciesId])
+  @@index([regionCode])
+}
